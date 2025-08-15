@@ -1,0 +1,57 @@
+{
+  "name": "mobile-platform-dev-kit",
+  "version": "1.0.0",
+  "description": "A production-ready mobile platform development kit with microservices, React Native, multiple SDK integrations, and Docker support",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "mobile"
+  ],
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "dev": "./scripts/docker-dev.sh start",
+    "dev:logs": "./scripts/docker-dev.sh logs",
+    "dev:stop": "./scripts/docker-dev.sh stop",
+    "dev:clean": "./scripts/docker-dev.sh clean",
+    "prod:deploy": "./scripts/docker-prod.sh deploy",
+    "prod:logs": "./scripts/docker-prod.sh logs",
+    "prod:status": "./scripts/docker-prod.sh status",
+    "prod:backup": "./scripts/docker-prod.sh backup",
+    "backend:install": "cd backend && bun install",
+    "mobile:install": "cd mobile && bun install",
+    "install:all": "bun run backend:install && bun run mobile:install",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:prod-down": "docker-compose -f docker-compose.prod.yml down"
+  },
+  "keywords": [
+    "mobile-platform",
+    "dev-kit",
+    "boilerplate",
+    "react-native",
+    "expo",
+    "microservices",
+    "sdk-integration",
+    "revenuecat",
+    "adjust",
+    "authentication",
+    "bun",
+    "fastify",
+    "docker",
+    "typescript",
+    "zustand",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "mobile-platform-dev-kit-mobile",
+  "version": "1.0.0",
+  "description": "React Native mobile app for the mobile platform development kit with SDK integrations (RevenueCat, Adjust, Scate) and Zustand state management",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "mobile-platform",
+    "react-native",
+    "expo",
+    "typescript",
+    "sdk-integration",
+    "revenuecat",
+    "adjust",
+    "scate",
+    "auth",
+    "zustand",
+    "boilerplate",
+    "mobile",
+    "bun"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "axios": "^1.9.0",
+    "expo": "~53.0.0",
+    "expo-constants": "~17.1.6",
+    "expo-font": "~13.3.1",
+    "expo-router": "~5.1.4",
+    "expo-splash-screen": "~0.30.8",
+    "expo-status-bar": "~2.2.3",
+    "expo-tracking-transparency": "~5.2.4",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-adjust": "^5.4.1",
+    "react-native-purchases": "^9.1.0",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "scatesdk-react": "^0.4.12",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.0.10",
+    "eslint": "^9.25.0",
+    "eslint-config-expo": "~9.2.0",
+    "typescript": "~5.8.3"
+  },
+  "private": true
+}
