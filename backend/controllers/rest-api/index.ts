@@ -2,8 +2,8 @@ import server from "./server";
 
 const start = async () => {
   try {
-    const host = server.config.API_HOST;
-    const port = parseInt(server.config.API_PORT);
+    const host = server.config.API_HOST || '0.0.0.0';
+    const port = parseInt(server.config.API_PORT || '8080');
     
     await server.listen({
       host,

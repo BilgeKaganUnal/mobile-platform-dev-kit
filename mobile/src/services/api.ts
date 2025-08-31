@@ -24,18 +24,25 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and session token
 api.interceptors.request.use(
   async (config) => {
     try {
-      const token = await AsyncStorage.getItem('auth-storage');
-      if (token) {
-        const parsedStorage = JSON.parse(token);
-        const authToken = parsedStorage?.state?.token;
+      // Add JWT auth token if available
+      const authStorage = await AsyncStorage.getItem('auth-storage');
+      if (authStorage) {
+        const parsedAuthStorage = JSON.parse(authStorage);
+        const authToken = parsedAuthStorage?.state?.token;
         
         if (authToken) {
           config.headers.Authorization = `Bearer ${authToken}`;
         }
+      }
+      
+      // Add session token if available
+      const sessionToken = await AsyncStorage.getItem('session_token');
+      if (sessionToken) {
+        config.headers['X-Session-Token'] = sessionToken;
       }
       
       return config;

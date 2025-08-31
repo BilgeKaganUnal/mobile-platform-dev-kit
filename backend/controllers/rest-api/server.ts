@@ -4,6 +4,7 @@ import config from "./plugins/config";
 import auth from "./plugins/auth";
 import errorHandler from "./plugins/error-handler";
 import authRoutes from "./routes/auth";
+import sessionRoutes from "./routes/sessions";
 
 const server = fastify({
   ajv: {
@@ -49,6 +50,7 @@ await server.register(auth);
 
 // Register routes
 await server.register(authRoutes, { prefix: "/auth" });
+await server.register(sessionRoutes, { prefix: "/sessions" });
 
 // Root health check
 server.get("/", async (request, reply) => {

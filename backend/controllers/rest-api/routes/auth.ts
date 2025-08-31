@@ -1,4 +1,5 @@
 import { FastifyPluginAsync, AuthFastifyRequest } from "fastify";
+import { Type } from "@sinclair/typebox";
 import { UserSchema } from "../../../domain/user/schema";
 import { 
   LoginBody, 
@@ -28,6 +29,9 @@ const authRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         response: {
           200: UserSchema,
+          404: Type.Object({
+            error: Type.String()
+          }),
         },
       },
     }, 

@@ -10,6 +10,12 @@ export enum ErrorCode {
   AUTH_INVALID_CREDENTIALS = 'AUTH_INVALID_CREDENTIALS',
   AUTH_PERMISSION_DENIED = 'AUTH_PERMISSION_DENIED',
 
+  // Session Management
+  SESSION_NOT_FOUND = 'SESSION_NOT_FOUND',
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
+  SESSION_INVALID = 'SESSION_INVALID',
+  SESSION_MIGRATION_FAILED = 'SESSION_MIGRATION_FAILED',
+
   // Validation
   VALIDATION_FAILED = 'VALIDATION_FAILED',
   VALIDATION_MISSING_FIELD = 'VALIDATION_MISSING_FIELD',
@@ -158,6 +164,45 @@ export class ErrorFactory {
     );
   }
 
+  // Session errors
+  static sessionNotFound(): AppError {
+    return new AppError(
+      ErrorCode.SESSION_NOT_FOUND,
+      'Session not found or expired',
+      401,
+      ErrorSeverity.MEDIUM
+    );
+  }
+
+  static sessionExpired(): AppError {
+    return new AppError(
+      ErrorCode.SESSION_EXPIRED,
+      'Session has expired',
+      401,
+      ErrorSeverity.MEDIUM
+    );
+  }
+
+  static sessionInvalid(details?: any): AppError {
+    return new AppError(
+      ErrorCode.SESSION_INVALID,
+      'Session is invalid',
+      401,
+      ErrorSeverity.MEDIUM,
+      details
+    );
+  }
+
+  static sessionMigrationFailed(details?: any): AppError {
+    return new AppError(
+      ErrorCode.SESSION_MIGRATION_FAILED,
+      'Failed to migrate session to user account',
+      500,
+      ErrorSeverity.HIGH,
+      details
+    );
+  }
+
   // Validation errors
   static validationFailed(details: any): AppError {
     return new AppError(
@@ -166,6 +211,15 @@ export class ErrorFactory {
       400,
       ErrorSeverity.LOW,
       details
+    );
+  }
+
+  static validationError(message: string): AppError {
+    return new AppError(
+      ErrorCode.VALIDATION_FAILED,
+      message,
+      400,
+      ErrorSeverity.LOW
     );
   }
 
