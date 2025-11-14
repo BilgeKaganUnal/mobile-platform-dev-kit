@@ -180,8 +180,22 @@ export const updateUserPassword = async (userId: string, hashedPassword: string)
       data: { password: hashedPassword },
     });
   } catch (error) {
-    throw ErrorFactory.databaseError({ 
-      operation: 'updateUserPassword', 
+    throw ErrorFactory.databaseError({
+      operation: 'updateUserPassword',
+      userId,
+      originalError: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+export const deleteUser = async (userId: string): Promise<void> => {
+  try {
+    await db.user.delete({
+      where: { id: userId },
+    });
+  } catch (error) {
+    throw ErrorFactory.databaseError({
+      operation: 'deleteUser',
       userId,
       originalError: error instanceof Error ? error.message : String(error)
     });

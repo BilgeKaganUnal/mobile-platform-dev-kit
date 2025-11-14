@@ -184,27 +184,63 @@ export const useAuth = () => {
     newPassword: string;
   }) => {
     authActions.setLoading(true);
-    
+
     try {
       await authService.changePassword(data);
-      
+
       showNotification({
         type: 'success',
         title: 'Password Changed',
         message: 'Your password has been changed successfully',
       });
-      
+
       return { success: true };
     } catch (error: any) {
       const appError = errorService.handleGenericError(error);
       const errorMessage = errorService.getUserFriendlyMessage(appError);
-      
+
       showNotification({
         type: 'error',
         title: 'Password Change Failed',
         message: errorMessage,
       });
-      
+
+      return { success: false, error: errorMessage };
+    } finally {
+      authActions.setLoading(false);
+    }
+  }, [authActions, showNotification]);
+
+  // Delete account function
+  const deleteAccount = useCallback(async () => {
+    authActions.setLoading(true);
+
+    try {
+      await authService.deleteAccount();
+
+      // Clear local state after successful deletion
+      authActions.clearAuth();
+
+      showNotification({
+        type: 'success',
+        title: 'Account Deleted',
+        message: 'Your account has been permanently deleted',
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      // Even if deletion fails on backend, clear local state (user wanted logout completely)
+      authActions.clearAuth();
+
+      const appError = errorService.handleGenericError(error);
+      const errorMessage = errorService.getUserFriendlyMessage(appError);
+
+      showNotification({
+        type: 'warning',
+        title: 'Account Deletion Warning',
+        message: 'Local data cleared, but there was an issue with the server: ' + errorMessage,
+      });
+
       return { success: false, error: errorMessage };
     } finally {
       authActions.setLoading(false);
@@ -219,13 +255,14 @@ export const useAuth = () => {
   return {
     // State
     ...authState,
-    
+
     // Actions
     login,
     register,
     logout,
     updateProfile,
     changePassword,
+    deleteAccount,
     checkAuth,
   };
 };
