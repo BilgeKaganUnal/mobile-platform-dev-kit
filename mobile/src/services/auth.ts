@@ -64,6 +64,14 @@ class AuthService {
     }
   }
 
+  async deleteAccount(): Promise<void> {
+    try {
+      await api.delete('/auth/account');
+    } catch (error) {
+      throw this.handleError(error, 'Failed to delete account');
+    }
+  }
+
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
     try {
       const response = await api.get('/auth/health');

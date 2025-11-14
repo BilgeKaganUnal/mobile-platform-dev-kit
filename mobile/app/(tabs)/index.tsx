@@ -1,25 +1,49 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks';
-import { Button } from '../../src/components/ui';
+import { Button, Input } from '../../src/components/ui';
 import { formatDisplayName } from '../../src/utils/formatters';
 
 export default function HomeScreen() {
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, deleteAccount, isLoading } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleLogout = async () => {
     const result = await logout();
     if (result.success) {
-      router.replace('/(auth)/login');
+      router.replace('/(onboarding)/page-1');
     }
   };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      return;
+    }
+
+    setIsDeleting(true);
+    const result = await deleteAccount();
+    setIsDeleting(false);
+
+    if (result.success || !result.success) {
+      // Close modal and navigate to onboarding (logout happens in deleteAccount)
+      setShowDeleteModal(false);
+      setDeleteConfirmText('');
+      router.replace('/(onboarding)/page-1');
+    }
+  };
+
+  const isDeleteButtonEnabled = deleteConfirmText === 'DELETE' && !isDeleting;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -60,9 +84,81 @@ export default function HomeScreen() {
               loading={isLoading}
               style={styles.logoutButton}
             />
+
+            <Button
+              title="Delete Account"
+              variant="outline"
+              onPress={() => setShowDeleteModal(true)}
+              style={styles.deleteButton}
+              textStyle={styles.deleteButtonText}
+            />
           </View>
         </View>
       </ScrollView>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDeleteModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.modalTitle}>Delete Account</Text>
+
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningTitle}>⚠️ Warning</Text>
+              <Text style={styles.warningText}>
+                This action is permanent and cannot be undone. All your account data will be deleted immediately.
+              </Text>
+            </View>
+
+            <View style={styles.gdprNotice}>
+              <Text style={styles.gdprTitle}>Third-Party Data Notice</Text>
+              <Text style={styles.gdprText}>
+                Please note that data stored by third-party services (RevenueCat, Adjust, Scate) may persist on their servers and cannot be deleted through this app. For complete data deletion, you may need to contact these services directly or submit a GDPR data deletion request.
+              </Text>
+            </View>
+
+            <Input
+              label="Type DELETE to confirm"
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              containerStyle={styles.confirmInput}
+            />
+
+            <View style={styles.modalActions}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText('');
+                }}
+                style={styles.modalButton}
+              />
+
+              <Button
+                title={isDeleting ? "Deleting..." : "Confirm Delete"}
+                variant="primary"
+                onPress={handleDeleteAccount}
+                disabled={!isDeleteButtonEnabled}
+                loading={isDeleting}
+                style={[styles.modalButton, styles.deleteConfirmButton]}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -152,8 +248,111 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     paddingTop: 20,
   },
-  
+
   logoutButton: {
     marginTop: 16,
+  },
+
+  deleteButton: {
+    marginTop: 12,
+    borderColor: '#FF3B30',
+  },
+
+  deleteButtonText: {
+    color: '#FF3B30',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+
+  warningContainer: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FFE69C',
+  },
+
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#856404',
+    marginBottom: 8,
+  },
+
+  warningText: {
+    fontSize: 14,
+    color: '#856404',
+    lineHeight: 20,
+  },
+
+  gdprNotice: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+
+  gdprTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1565C0',
+    marginBottom: 8,
+  },
+
+  gdprText: {
+    fontSize: 13,
+    color: '#1976D2',
+    lineHeight: 18,
+  },
+
+  confirmInput: {
+    marginBottom: 20,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  modalButton: {
+    flex: 1,
+  },
+
+  deleteConfirmButton: {
+    backgroundColor: '#FF3B30',
   },
 });

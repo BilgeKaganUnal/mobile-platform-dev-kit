@@ -147,10 +147,33 @@ const authRoutes: FastifyPluginAsync = async (server) => {
     }
   );
 
+  // Delete account endpoint
+  server.delete(
+    "/account",
+    {
+      onRequest: server.requireAuth,
+      schema: {
+        response: {
+          200: Type.Object({
+            message: Type.String()
+          })
+        }
+      }
+    },
+    async (request, reply) => {
+      const user = (request as AuthFastifyRequest).user;
+      const { deleteUser } = await import("../../../domain/user/repository");
+
+      await deleteUser(user.id);
+
+      return reply.code(200).send({ message: "Account deleted successfully" });
+    }
+  );
+
   // Health check endpoint
   server.get("/health", async (request, reply) => {
-    return reply.code(200).send({ 
-      status: "ok", 
+    return reply.code(200).send({
+      status: "ok",
       timestamp: new Date().toISOString(),
       service: "auth"
     });
