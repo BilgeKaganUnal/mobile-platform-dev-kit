@@ -120,20 +120,36 @@ export const useSessionStore = create<SessionState>()(
       try {
         logger.info('SessionStore: Deleting session...');
         set({ isLoading: true, error: null });
-        
+
+        // Clear onboarding flag to restart onboarding flow
+        try {
+          await AsyncStorage.removeItem('onboarding_completed');
+          logger.info('Onboarding flag cleared after session deletion');
+        } catch (error) {
+          logger.error('Failed to clear onboarding flag', { error });
+          // Don't throw - not critical
+        }
+
         await sessionService.deleteSession();
         set({ session: null, sessionToken: null, deviceId: null });
-        
+
         logger.info('SessionStore: Session deleted successfully');
-        
+
       } catch (error) {
+        // Still clear onboarding flag even on error
+        try {
+          await AsyncStorage.removeItem('onboarding_completed');
+        } catch (e) {
+          logger.error('Failed to clear onboarding flag in error handler', { e });
+        }
+
         logger.error('SessionStore: Failed to delete session', { error });
-        
+
         const errorMessage = error instanceof Error ? error.message : 'Session deletion failed';
         set({ error: errorMessage });
-        
+
         throw error;
-        
+
       } finally {
         set({ isLoading: false });
       }

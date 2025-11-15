@@ -10,20 +10,24 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks';
+import { useSessionActions } from '../../src/store/session.store';
 import { Button, Input } from '../../src/components/ui';
 import { formatDisplayName } from '../../src/utils/formatters';
 
 export default function HomeScreen() {
-  const { user, logout, deleteAccount, isLoading } = useAuth();
+  const { user, logout, deleteAccount, isLoading, isAuthenticated } = useAuth();
+  const { deleteSession } = useSessionActions();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSessionModal, setShowDeleteSessionModal] = useState(false);
+  const [deleteSessionConfirmText, setDeleteSessionConfirmText] = useState('');
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
 
   const handleLogout = async () => {
-    const result = await logout();
-    if (result.success) {
-      router.replace('/(onboarding)/page-1');
-    }
+    await logout();
+    // Button visibility updates automatically via isAuthenticated state
+    // Navigation handled by _layout.tsx reactively
   };
 
   const handleDeleteAccount = async () => {
@@ -36,10 +40,34 @@ export default function HomeScreen() {
     setIsDeleting(false);
 
     if (result.success || !result.success) {
-      // Close modal and navigate to onboarding (logout happens in deleteAccount)
+      // Close modal (navigation handled by _layout.tsx)
       setShowDeleteModal(false);
       setDeleteConfirmText('');
-      router.replace('/(onboarding)/page-1');
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (deleteSessionConfirmText !== 'DELETE') {
+      return;
+    }
+
+    setIsDeletingSession(true);
+    try {
+      // Use session store action (which handles onboarding flag clearing)
+      await deleteSession();
+
+      // Close modal
+      setShowDeleteSessionModal(false);
+      setDeleteSessionConfirmText('');
+
+      // Navigation to onboarding will be handled by _layout.tsx reactively
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      // Still close modal since store clears local state even on error
+      setShowDeleteSessionModal(false);
+      setDeleteSessionConfirmText('');
+    } finally {
+      setIsDeletingSession(false);
     }
   };
 
@@ -77,21 +105,51 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.actions}>
-            <Button
-              title="Logout"
-              variant="outline"
-              onPress={handleLogout}
-              loading={isLoading}
-              style={styles.logoutButton}
-            />
+            {isAuthenticated ? (
+              // Authenticated users - show logout and delete account
+              <>
+                <Button
+                  title="Logout"
+                  variant="outline"
+                  onPress={handleLogout}
+                  loading={isLoading}
+                  style={styles.logoutButton}
+                />
 
-            <Button
-              title="Delete Account"
-              variant="outline"
-              onPress={() => setShowDeleteModal(true)}
-              style={styles.deleteButton}
-              textStyle={styles.deleteButtonText}
-            />
+                <Button
+                  title="Delete Account"
+                  variant="outline"
+                  onPress={() => setShowDeleteModal(true)}
+                  style={styles.deleteButton}
+                  textStyle={styles.deleteButtonText}
+                />
+              </>
+            ) : (
+              // Anonymous users (session only) - show login/register and delete session
+              <>
+                <Button
+                  title="Sign In"
+                  variant="primary"
+                  onPress={() => router.push('/(auth)/login')}
+                  style={styles.signInButton}
+                />
+
+                <Button
+                  title="Create Account"
+                  variant="outline"
+                  onPress={() => router.push('/(auth)/register')}
+                  style={styles.createAccountButton}
+                />
+
+                <Button
+                  title="Delete Session"
+                  variant="outline"
+                  onPress={() => setShowDeleteSessionModal(true)}
+                  style={styles.deleteSessionButton}
+                  textStyle={styles.deleteSessionButtonText}
+                />
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -153,6 +211,63 @@ export default function HomeScreen() {
                 onPress={handleDeleteAccount}
                 disabled={!isDeleteButtonEnabled}
                 loading={isDeleting}
+                style={[styles.modalButton, styles.deleteConfirmButton]}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Delete Session Confirmation Modal */}
+      <Modal
+        visible={showDeleteSessionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteSessionModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDeleteSessionModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.modalTitle}>Delete Session</Text>
+
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningTitle}>⚠️ Warning</Text>
+              <Text style={styles.warningText}>
+                This will delete your anonymous session and all local data. You'll need to go through onboarding again.
+              </Text>
+            </View>
+
+            <Input
+              label="Type DELETE to confirm"
+              value={deleteSessionConfirmText}
+              onChangeText={setDeleteSessionConfirmText}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              containerStyle={styles.confirmInput}
+            />
+
+            <View style={styles.modalActions}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={() => {
+                  setShowDeleteSessionModal(false);
+                  setDeleteSessionConfirmText('');
+                }}
+                style={styles.modalButton}
+              />
+
+              <Button
+                title={isDeletingSession ? "Deleting..." : "Confirm Delete"}
+                variant="primary"
+                onPress={handleDeleteSession}
+                disabled={deleteSessionConfirmText !== 'DELETE'}
+                loading={isDeletingSession}
                 style={[styles.modalButton, styles.deleteConfirmButton]}
               />
             </View>
@@ -259,6 +374,23 @@ const styles = StyleSheet.create({
   },
 
   deleteButtonText: {
+    color: '#FF3B30',
+  },
+
+  signInButton: {
+    marginTop: 16,
+  },
+
+  createAccountButton: {
+    marginTop: 12,
+  },
+
+  deleteSessionButton: {
+    marginTop: 12,
+    borderColor: '#FF3B30',
+  },
+
+  deleteSessionButtonText: {
     color: '#FF3B30',
   },
 

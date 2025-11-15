@@ -63,6 +63,35 @@ function AppContent() {
     checkOnboardingStatus();
   }, []); // Only check once on mount
 
+  // Re-check onboarding status when session state changes (e.g., session deletion, account deletion)
+  useEffect(() => {
+    const recheckOnboarding = async () => {
+      try {
+        const onboardingCompleted = await AsyncStorage.getItem('onboarding_completed');
+        const hasCompleted = onboardingCompleted === 'true';
+
+        // Only update if the value has actually changed
+        if (hasCompleted !== hasCompletedOnboarding) {
+          logger.info('Onboarding status changed after session state update', {
+            hasCompleted,
+            previous: hasCompletedOnboarding,
+            hasValidSession,
+            isSessionChecked
+          });
+          setHasCompletedOnboarding(hasCompleted);
+        }
+      } catch (error) {
+        logger.error('Error re-checking onboarding status', { error });
+      }
+    };
+
+    // Re-check onboarding status when session is checked and not loading
+    // This handles cases where session is deleted or account is deleted
+    if (isSessionChecked && !sessionLoading) {
+      recheckOnboarding();
+    }
+  }, [hasValidSession, isSessionChecked, sessionLoading]);
+
   // Listen for onboarding completion changes (e.g., when paywall is completed/skipped)
   useEffect(() => {
     const checkForOnboardingUpdate = async () => {
