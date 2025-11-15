@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore, useAuth as useAuthStore_selector, useAuthActions } from '../store/auth.store';
 import { useUIActions } from '../store/ui.store';
 import { authService } from '../services/auth';
@@ -218,6 +219,15 @@ export const useAuth = () => {
     try {
       await authService.deleteAccount();
 
+      // Clear onboarding completed flag to restart onboarding flow
+      try {
+        await AsyncStorage.removeItem('onboarding_completed');
+        console.log('Onboarding flag cleared after account deletion');
+      } catch (error) {
+        console.error('Failed to clear onboarding flag', error);
+        // Don't throw - not critical
+      }
+
       // Clear local state after successful deletion
       authActions.clearAuth();
 
@@ -229,6 +239,13 @@ export const useAuth = () => {
 
       return { success: true };
     } catch (error: any) {
+      // Clear onboarding flag even on error
+      try {
+        await AsyncStorage.removeItem('onboarding_completed');
+      } catch (e) {
+        console.error('Failed to clear onboarding flag', e);
+      }
+
       // Even if deletion fails on backend, clear local state (user wanted logout completely)
       authActions.clearAuth();
 

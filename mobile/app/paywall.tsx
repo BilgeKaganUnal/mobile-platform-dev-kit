@@ -1,133 +1,121 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
-  Animated,
-  Platform,
 } from 'react-native';
+import { IconSymbol } from '../src/components/ui/IconSymbol';
+import { Theme } from '@/constants/Theme';
 import { router, Stack } from 'expo-router';
 import { useRevenueCat } from '../src/store/revenuecat.store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '../src/utils/logger';
+import OnboardingLayout from '../src/components/ui/OnboardingLayout';
+import { responsive, fontSize, getSpacing } from '@/utils/responsive';
 
-const features = [
-  'Unlimited access to all premium features',
-  'Advanced analytics and insights',
-  'Priority customer support',
-  'Ad-free experience',
-  'Cloud backup and synchronization',
-  'Advanced customization options'
-];
+interface PlanOption {
+  id: string;
+  title: string;
+  price: string;
+  period: string;
+  badge?: string;
+  revenueCatPackage: any;
+  pricePerWeek?: string;
+}
 
 export default function PaywallScreen() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [skipTimer, setSkipTimer] = useState(5); // 5 second timer
-  const [canSkip, setCanSkip] = useState(false);
-  
-  const timerAnimation = useRef(new Animated.Value(1)).current;
-  const fadeInAnimation = useRef(new Animated.Value(0)).current;
-  
+
   const {
     customerInfo,
     isLoading: subscriptionLoading,
   } = useRevenueCat();
-  
+
   // TODO: Add these when RevenueCat store is complete
   const offerings = {};
   const purchasePackage = async () => ({ success: false, userCancelled: false });
   const restoreTransactions = async () => {};
 
-  // Timer countdown effect
-  useEffect(() => {
-    if (skipTimer > 0) {
-      const interval = setInterval(() => {
-        setSkipTimer(prev => {
-          if (prev <= 1) {
-            setCanSkip(true);
-            // Animate skip button appearance
-            Animated.timing(fadeInAnimation, {
-              toValue: 1,
-              duration: 300,
-              useNativeDriver: true,
-            }).start();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [skipTimer]);
-
-  // Timer circle animation
-  useEffect(() => {
-    if (skipTimer > 0) {
-      const interval = setInterval(() => {
-        Animated.timing(timerAnimation, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
-        }).start(() => {
-          timerAnimation.setValue(1);
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [skipTimer]);
-
-  const hasActiveSubscription = customerInfo?.entitlements.active ? 
+  const hasActiveSubscription = customerInfo?.entitlements.active ?
     Object.keys(customerInfo.entitlements.active).length > 0 : false;
 
-  const plans = useMemo(() => {
-    if (!offerings) return [];
+  const plans: PlanOption[] = useMemo(() => {
+    const mappedPlans: PlanOption[] = [];
 
-    const mappedPlans: any[] = [];
-    const sortOrder = ['Weekly', 'Monthly', 'Annual'];
+    // Check if we have real offerings
+    const hasOfferings = offerings && Object.keys(offerings).length > 0;
 
-    for (const offering of Object.values(offerings)) {
-      // TODO: Fix when offerings are available
-      if (false) {
-        for (const pkg of [] as any[]) {
-          let badge = '';
-          let savings = '';
-          
-          // Add badges and savings for different plans
-          const packageType = pkg.packageType?.toUpperCase() || '';
-          if (packageType.includes('ANNUAL')) {
-            badge = 'BEST VALUE';
-            savings = 'Save 60%';
-          } else if (packageType.includes('MONTHLY')) {
-            badge = 'MOST POPULAR';
+    if (hasOfferings) {
+      // Use real offerings from RevenueCat
+      for (const key in offerings) {
+        if (offerings.hasOwnProperty(key)) {
+          const offering = (offerings as any)[key];
+          if (offering && offering.availablePackages?.length > 0) {
+            const pkg = offering.availablePackages[0];
+            let badge = '';
+            let pricePerWeek = '';
+
+            // Map plans according to receipt-scanner pattern
+            if (offering.serverDescription === 'Weekly') {
+              badge = 'Popular';
+            } else if (offering.serverDescription === 'Annual') {
+              badge = '80% OFF!';
+              // Get the weekly price from RevenueCat for annual plans
+              pricePerWeek = pkg.product.pricePerWeekString || '';
+            }
+
+            mappedPlans.push({
+              id: pkg.identifier,
+              title: offering.serverDescription === 'Weekly' ? '1 Week' :
+                offering.serverDescription === 'Annual' ? '1 Year' :
+                  offering.serverDescription === 'Monthly' ? '1 Month' : offering.serverDescription,
+              price: pkg.product.priceString,
+              period: `per ${pkg.packageType.toLowerCase()}`,
+              badge,
+              pricePerWeek,
+              revenueCatPackage: pkg,
+            });
           }
-          
-          mappedPlans.push({
-            id: (pkg as any).identifier,
-            title: 'Premium Plan', // offering.serverDescription || packageType,
-            price: (pkg as any).product.priceString,
-            period: `per ${packageType.toLowerCase()}`,
-            description: (pkg as any).product.description || '',
-            badge,
-            savings,
-            revenueCatPackage: pkg,
-          });
         }
       }
+    } else {
+      // Use mock data for development
+      mappedPlans.push(
+        {
+          id: 'mock_weekly',
+          title: '1 Week',
+          price: '$4.99',
+          period: 'per week',
+          badge: 'Popular',
+          revenueCatPackage: null,
+        },
+        {
+          id: 'mock_annual',
+          title: '1 Year',
+          price: '$49.99',
+          period: 'per year',
+          badge: '80% OFF!',
+          pricePerWeek: '$0.96',
+          revenueCatPackage: null,
+        },
+        {
+          id: 'mock_monthly',
+          title: '1 Month',
+          price: '$9.99',
+          period: 'per month',
+          revenueCatPackage: null,
+        }
+      );
     }
 
-    // Sort plans if needed
+    // Sort: Weekly, Annual, Monthly
     mappedPlans.sort((a, b) => {
-      const aIndex = sortOrder.findIndex(order => a.title.includes(order));
-      const bIndex = sortOrder.findIndex(order => b.title.includes(order));
-      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+      const order = ['1 Week', '1 Year', '1 Month'];
+      return order.indexOf(a.title) - order.indexOf(b.title);
     });
 
     return mappedPlans;
@@ -135,9 +123,9 @@ export default function PaywallScreen() {
 
   useEffect(() => {
     if (plans.length > 0 && !selectedPlan) {
-      // Select the most popular plan (Monthly) or first plan
-      const popularPlan = plans.find(p => p.badge === 'MOST POPULAR') || plans[0];
-      setSelectedPlan(popularPlan.id);
+      // Select the Annual plan by default (80% OFF!)
+      const annualPlan = plans.find(p => p.title === '1 Year') || plans[0];
+      setSelectedPlan(annualPlan.id);
     }
   }, [plans, selectedPlan]);
 
@@ -154,7 +142,7 @@ export default function PaywallScreen() {
 
       if (success) {
         Alert.alert(
-          'Welcome to Premium! 🎉',
+          'Welcome to Premium!',
           'Your subscription is now active. You can now access all premium features!',
           [
             {
@@ -163,8 +151,8 @@ export default function PaywallScreen() {
                 // Mark onboarding as completed when subscription is successful
                 await AsyncStorage.setItem('onboarding_completed', 'true');
                 logger.info('Subscription successful - onboarding marked as completed');
-                
-                // Navigate to main app - main layout will handle proper routing
+
+                // Navigate to main app
                 router.replace('/(tabs)');
               }
             }
@@ -183,31 +171,18 @@ export default function PaywallScreen() {
     }
   };
 
-  const handleSkip = () => {
-    Alert.alert(
-      'Continue with Limited Features?',
-      'You can still browse the app, but some features will be limited. You can upgrade anytime from settings.',
-      [
-        { text: 'Go Back', style: 'cancel' },
-        {
-          text: 'Continue',
-          onPress: async () => {
-            try {
-              // Mark onboarding as completed when user skips paywall
-              await AsyncStorage.setItem('onboarding_completed', 'true');
-              logger.info('Paywall skipped - onboarding marked as completed');
-              
-              // Navigate to main app
-              router.replace('/(tabs)');
-            } catch (error) {
-              logger.error('Failed to save onboarding completion on paywall skip', { error });
-              // Continue anyway
-              router.replace('/(tabs)');
-            }
-          }
-        }
-      ]
-    );
+  const handleSkip = async () => {
+    try {
+      // Mark onboarding as completed when user skips paywall
+      await AsyncStorage.setItem('onboarding_completed', 'true');
+      logger.info('Paywall skipped - onboarding marked as completed');
+
+      // Navigate to main app
+      router.replace('/(tabs)');
+    } catch (error) {
+      logger.error('Error completing onboarding after skip', { error });
+      Alert.alert('Error', 'Something went wrong. Please restart the app.');
+    }
   };
 
   const handleRestore = async () => {
@@ -222,90 +197,130 @@ export default function PaywallScreen() {
     }
   };
 
-  const renderPlanCard = (plan: any) => {
+  const renderPlanCard = (plan: PlanOption) => {
     const isSelected = selectedPlan === plan.id;
-    const isPopular = plan.badge === 'MOST POPULAR';
-    const isBestValue = plan.badge === 'BEST VALUE';
+    const hasPopularBadge = plan.badge === 'Popular';
+    const hasDiscountBadge = plan.badge === '80% OFF!';
 
     return (
       <TouchableOpacity
         key={plan.id}
         style={[
           styles.planCard,
+          hasPopularBadge && !isSelected && styles.popularPlan,
+          hasDiscountBadge && !isSelected && styles.discountPlan,
           isSelected && styles.selectedPlan,
-          (isPopular || isBestValue) && styles.popularPlan,
         ]}
         onPress={() => setSelectedPlan(plan.id)}
         activeOpacity={0.7}
       >
         {plan.badge && (
-          <View style={[styles.badge, isBestValue && styles.bestValueBadge]}>
+          <View style={[
+            styles.badge,
+            hasPopularBadge && styles.popularBadge,
+            hasDiscountBadge && styles.discountBadge,
+          ]}>
             <Text style={styles.badgeText}>{plan.badge}</Text>
           </View>
         )}
 
-        {plan.savings && (
-          <View style={styles.savingsTag}>
-            <Text style={styles.savingsText}>{plan.savings}</Text>
-          </View>
-        )}
-
-        <View style={styles.planHeader}>
-          <View style={styles.planTitleRow}>
-            <Text style={[styles.planTitle, isSelected && styles.selectedText]}>
-              {plan.title}
-            </Text>
-          </View>
-
-          <View style={styles.priceRow}>
-            <Text style={[styles.planPrice, isSelected && styles.selectedText]}>
-              {plan.price}
-            </Text>
-          </View>
-
-          <Text style={[styles.planPeriod, isSelected && styles.selectedPeriod]}>
-            {plan.period}
-          </Text>
-        </View>
-
-        <View style={styles.radioContainer}>
-          <View style={[styles.radio, isSelected && styles.radioSelected]}>
-            {isSelected && <View style={styles.radioInner} />}
+        <View style={styles.planContent}>
+          <Text style={styles.planTitle}>{plan.title}</Text>
+          <View style={styles.planPriceContainer}>
+            <Text style={styles.planPrice}>{plan.price}</Text>
+            {plan.pricePerWeek && (
+              <View style={styles.weeklyPriceContainer}>
+                <Text style={styles.pricePerWeek}>{plan.pricePerWeek}</Text>
+                <Text style={styles.perWeekLabel}>per week</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
     );
   };
 
+  // Image placeholder for children prop
+  const paywallContent = (
+    <View style={styles.imageContainer}>
+      <View style={styles.imagePlaceholder} />
+    </View>
+  );
+
+  // Middle content: subscription plans only
+  const middleContent = (
+    <View style={styles.plansContainer}>
+      {plans.map(renderPlanCard)}
+    </View>
+  );
+
+  // Footer content: billing info and links
+  const footerContent = (
+    <>
+      <View style={styles.billingInfo}>
+        <View style={styles.billingRow}>
+          <IconSymbol name="checkmark" size={16} color="#4CAF50" />
+          <Text style={styles.billingText}>Recurring billing, cancel anytime</Text>
+        </View>
+      </View>
+
+      <View style={styles.footerLinks}>
+        <TouchableOpacity onPress={() => {}}>
+          <Text style={styles.footerLinkText}>Terms</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => {}}>
+          <Text style={styles.footerLinkText}>Privacy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleRestore}>
+          <Text style={styles.footerLinkText}>Restore</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  // Loading content when subscription is loading
+  const loadingContent = subscriptionLoading ? (
+    <>
+      <ActivityIndicator size="large" color={Theme.colors.primary} />
+      <Text style={styles.loadingText}>Loading subscription details...</Text>
+    </>
+  ) : undefined;
+
   // Show subscription management if already subscribed
   if (hasActiveSubscription) {
+    const subscriptionContent = (
+      <View style={styles.imageContainer}>
+        <View style={styles.imagePlaceholder} />
+        <View style={styles.subscribedIconOverlay}>
+          <IconSymbol
+            name="checkmark.circle.fill"
+            size={80}
+            color="#4CAF50"
+          />
+        </View>
+      </View>
+    );
+
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <SafeAreaView style={styles.container}>
-          <View style={styles.subscribedContainer}>
-            <View style={styles.subscribedGradient}>
-              <Text style={styles.subscribedIcon}>✅</Text>
-              <Text style={styles.subscribedTitle}>You're All Set!</Text>
-              <Text style={styles.subscribedSubtitle}>
-                You already have an active subscription. Enjoy all premium features!
-              </Text>
-              <TouchableOpacity
-                style={styles.continueToAppButton}
-                onPress={async () => {
-                  // Mark onboarding as completed for users with existing subscriptions
-                  await AsyncStorage.setItem('onboarding_completed', 'true');
-                  logger.info('Existing subscription detected - onboarding marked as completed');
-                  
-                  // Navigate to main app - main layout will handle proper routing
-                  router.replace('/(tabs)');
-                }}
-              >
-                <Text style={styles.continueToAppButtonText}>Continue to App</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </SafeAreaView>
+        <OnboardingLayout
+          title="You're All Set!"
+          subtitle="You already have an active subscription. Enjoy all premium features!"
+          onContinue={async () => {
+            // Mark onboarding as completed for users with existing subscriptions
+            await AsyncStorage.setItem('onboarding_completed', 'true');
+            logger.info('Existing subscription detected - onboarding marked as completed');
+
+            // Navigate to main app
+            router.replace('/(tabs)');
+          }}
+          continueText="Continue to App"
+          pageIndicators={4}
+          totalPages={4}
+        >
+          {subscriptionContent}
+        </OnboardingLayout>
       </>
     );
   }
@@ -313,559 +328,182 @@ export default function PaywallScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.container}>
-        {/* Skip Timer/Button */}
-        <View style={styles.skipContainer}>
-          {!canSkip ? (
-            <View style={styles.timerContainer}>
-              <View style={styles.timerCircle}>
-                <Animated.View
-                  style={[
-                    styles.timerProgress,
-                    {
-                      transform: [
-                        {
-                          rotate: timerAnimation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '360deg'],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
-                <Text style={styles.timerText}>{skipTimer}</Text>
-              </View>
-            </View>
-          ) : (
-            <Animated.View style={{ opacity: fadeInAnimation }}>
-              <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                <Text style={styles.skipButtonText}>Skip</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </View>
-
-        {subscriptionLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4299E1" />
-            <Text style={styles.loadingText}>Loading subscription details...</Text>
-          </View>
-        ) : (
-          <>
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {/* Hero Section */}
-              <View style={styles.heroSection}>
-                <View style={styles.heroIconContainer}>
-                  <View style={styles.heroIconGradient}>
-                    <Text style={styles.heroIcon}>👑</Text>
-                  </View>
-                </View>
-                <Text style={styles.heroTitle}>Unlock Premium Features</Text>
-                <Text style={styles.heroSubtitle}>
-                  Get unlimited access to all features and premium content
-                </Text>
-              </View>
-
-              {/* Plan Selection */}
-              <View style={styles.plansSection}>
-                <View style={styles.plansContainer}>
-                  {plans.map(renderPlanCard)}
-                </View>
-              </View>
-
-              {/* Features Section */}
-              <View style={styles.featuresSection}>
-                <View style={styles.featuresSectionHeader}>
-                  <Text style={styles.featuresSectionTitle}>Premium includes</Text>
-                </View>
-
-                <View style={styles.featuresGrid}>
-                  {features.map((feature, index) => (
-                    <View key={index} style={styles.featureCard}>
-                      <View style={styles.featureIcon}>
-                        <Text style={styles.checkIcon}>✓</Text>
-                      </View>
-                      <Text style={styles.featureText}>{feature}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Trust Indicators */}
-              <View style={styles.trustSection}>
-                <View style={styles.trustIndicator}>
-                  <Text style={styles.trustIcon}>🔒</Text>
-                  <Text style={styles.trustText}>Secure & Private</Text>
-                </View>
-                <View style={styles.trustIndicator}>
-                  <Text style={styles.trustIcon}>🔄</Text>
-                  <Text style={styles.trustText}>Cancel Anytime</Text>
-                </View>
-              </View>
-
-              {/* Terms */}
-              <View style={styles.termsSection}>
-                <Text style={styles.termsText}>
-                  By continuing, you agree to our Terms of Service and Privacy Policy.
-                </Text>
-              </View>
-            </ScrollView>
-
-            {/* Bottom CTA */}
-            <View style={styles.bottomSection}>
-              <View style={styles.purchaseButtonGradient}>
-                <TouchableOpacity
-                  style={[styles.purchaseButton, isLoading && styles.purchaseButtonDisabled]}
-                  onPress={handlePurchase}
-                  activeOpacity={isLoading ? 1 : 0.9}
-                  disabled={isLoading || !selectedPlan}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Text style={styles.purchaseButtonText}>
-                        Start Premium - {plans.find(p => p.id === selectedPlan)?.price || ''}
-                      </Text>
-                      <Text style={styles.purchaseButtonSubtext}>
-                        {plans.find(p => p.id === selectedPlan)?.period}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Restore Button */}
-              <TouchableOpacity style={styles.restoreButton} onPress={handleRestore}>
-                <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </SafeAreaView>
+      <OnboardingLayout
+        title="Premium"
+        subtitle="Unlock all premium features and advanced functionality"
+        pageIndicators={4}
+        totalPages={4}
+        onContinue={handlePurchase}
+        continueDisabled={!selectedPlan || isLoading}
+        continueLoading={isLoading}
+        loadingContent={loadingContent}
+        middleContent={!subscriptionLoading ? middleContent : undefined}
+        footerContent={!subscriptionLoading ? footerContent : undefined}
+        onSkip={handleSkip}
+        showSkipAfter={3}
+      >
+        {paywallContent}
+      </OnboardingLayout>
     </>
   );
 }
 
+const imageSize = responsive.getImageContainerSize();
+const planCardHeight = responsive.getPlanCardHeight();
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-
-  // Skip Timer/Button
-  skipContainer: {
-    paddingTop: 16,
-    paddingHorizontal: 24,
-    alignItems: 'flex-end',
-    minHeight: 60,
-    justifyContent: 'center',
-  },
-  timerContainer: {
-    alignItems: 'center',
-  },
-  timerCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(66, 153, 225, 0.1)',
+  // Image Section
+  imageContainer: {
+    width: imageSize.width,
+    height: imageSize.height,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
-  timerProgress: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Theme.colors.backgroundSecondary,
+    borderRadius: responsive.scale(20),
     borderWidth: 2,
-    borderColor: '#4299E1',
-    borderTopColor: 'transparent',
-  },
-  timerText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4299E1',
-  },
-  skipButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  skipButtonText: {
-    color: '#4A5568',
-    fontSize: 14,
-    fontWeight: '500',
+    borderColor: Theme.colors.borderLight,
+    borderStyle: 'dashed',
   },
 
-  // Content
-  content: {
-    flex: 1,
-  },
-
-  // Hero Section
-  heroSection: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 32,
-    alignItems: 'center',
-  },
-  heroIconContainer: {
-    marginBottom: 20,
-  },
-  heroIconGradient: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#4299E1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#4299E1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  heroIcon: {
-    fontSize: 40,
-    color: '#FFFFFF',
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: -0.4,
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-
-  // Plans Section
-  plansSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
+  // Plans Section - Horizontal Layout
   plansContainer: {
-    gap: 12,
+    flexDirection: 'row',
+    gap: responsive.scale(8),
   },
+
   planCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#F0F2F5',
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: responsive.scale(12),
+    padding: responsive.scale(10),
+    borderWidth: responsive.scale(1.5),
+    borderColor: '#E5E7EB',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    alignItems: 'center',
+    height: planCardHeight,
+    justifyContent: 'center',
   },
   selectedPlan: {
-    borderColor: '#4299E1',
-    backgroundColor: '#FFFFFF',
-    transform: [{ scale: 1.02 }],
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    borderColor: Theme.colors.primary,
+    backgroundColor: `${Theme.colors.primary}14`, // Light blue tint (14 = 8% opacity in hex)
+    borderWidth: responsive.scale(2.5),
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: responsive.scale(8),
+    elevation: 5,
   },
   popularPlan: {
-    borderColor: '#4299E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: Theme.colors.primary,
+  },
+  discountPlan: {
+    borderColor: Theme.colors.primary,
   },
   badge: {
     position: 'absolute',
-    top: -12,
-    left: 20,
-    backgroundColor: '#4299E1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    top: responsive.scale(-8),
+    backgroundColor: Theme.colors.primary,
+    paddingHorizontal: getSpacing(8),
+    paddingVertical: getSpacing(3),
+    borderRadius: responsive.scale(8),
+    zIndex: 1,
   },
-  bestValueBadge: {
-    backgroundColor: '#10B981',
+  popularBadge: {
+    backgroundColor: Theme.colors.primary,
+  },
+  discountBadge: {
+    backgroundColor: Theme.colors.primary,
   },
   badgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: Theme.colors.textInverse,
+    fontSize: fontSize(10),
     fontWeight: '700',
-    letterSpacing: 0.5,
   },
-  savingsTag: {
-    position: 'absolute',
-    top: -12,
-    right: 20,
-    backgroundColor: '#10B981',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  savingsText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  planHeader: {
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  planTitleRow: {
-    flexDirection: 'row',
+  planContent: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    justifyContent: 'flex-start',
+    flex: 1,
+    paddingTop: getSpacing(12),
   },
   planTitle: {
-    fontSize: 18,
+    fontSize: fontSize(14),
     fontWeight: '600',
-    color: '#333',
+    color: Theme.colors.text,
+    marginBottom: getSpacing(4),
   },
-  selectedText: {
-    color: '#4299E1',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 4,
+  planPriceContainer: {
+    alignItems: 'center',
   },
   planPrice: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    letterSpacing: -0.8,
+    fontSize: fontSize(14),
+    fontWeight: '600',
+    color: Theme.colors.text,
   },
-  planPeriod: {
-    fontSize: 14,
-    color: '#666',
-  },
-  selectedPeriod: {
-    color: '#4299E1',
-  },
-  radioContainer: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#DDD',
-    justifyContent: 'center',
+  weeklyPriceContainer: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: responsive.scale(6),
+    paddingHorizontal: getSpacing(8),
+    paddingVertical: getSpacing(4),
+    marginTop: getSpacing(8),
+    flexDirection: 'column',
     alignItems: 'center',
   },
-  radioSelected: {
-    borderColor: '#4299E1',
+  pricePerWeek: {
+    fontSize: fontSize(12),
+    color: Theme.colors.textInverse,
+    fontWeight: '600',
   },
-  radioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4299E1',
+  perWeekLabel: {
+    fontSize: fontSize(11),
+    color: Theme.colors.textInverse,
+    fontWeight: '400',
   },
 
-  // Features Section
-  featuresSection: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
+  // Billing Info
+  billingInfo: {
+    alignItems: 'center',
+    marginBottom: getSpacing(10),
   },
-  featuresSectionHeader: {
-    marginBottom: 20,
-  },
-  featuresSectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    textAlign: 'center',
-  },
-  featuresGrid: {
-    gap: 12,
-  },
-  featureCard: {
+  billingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFBFC',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F0F1F3',
+    gap: getSpacing(6),
   },
-  featureIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E3F2FD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  checkIcon: {
-    color: '#4299E1',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  featureText: {
-    fontSize: 15,
-    color: '#1a1a1a',
-    fontWeight: '500',
-    flex: 1,
+  billingText: {
+    fontSize: fontSize(13),
+    color: Theme.colors.textSecondary,
   },
 
-  // Trust Section
-  trustSection: {
+  // Footer Links
+  footerLinks: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 32,
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    marginBottom: 16,
+    gap: getSpacing(28),
   },
-  trustIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  trustIcon: {
-    fontSize: 20,
-  },
-  trustText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-
-  // Terms
-  termsSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-  },
-  termsText: {
-    fontSize: 13,
-    color: '#999',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-
-  // Bottom Section
-  bottomSection: {
-    padding: 24,
-    paddingBottom: 32,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.06)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  purchaseButtonGradient: {
-    borderRadius: 20,
-    backgroundColor: '#4299E1',
-    shadowColor: '#4299E1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-    marginBottom: 16,
-  },
-  purchaseButton: {
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 60,
-  },
-  purchaseButtonDisabled: {
-    opacity: 0.7,
-  },
-  purchaseButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 2,
-    letterSpacing: 0.3,
-  },
-  purchaseButtonSubtext: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-  },
-  restoreButton: {
-    alignSelf: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  restoreButtonText: {
-    fontSize: 14,
-    color: '#4299E1',
-    fontWeight: '500',
+  footerLinkText: {
+    fontSize: fontSize(13),
+    color: Theme.colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 
   // Loading state
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   loadingText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 16,
+    fontSize: fontSize(16),
+    color: Theme.colors.textSecondary,
+    marginTop: getSpacing(16),
+    textAlign: 'center',
   },
 
-  // Already subscribed state
-  subscribedContainer: {
-    flex: 1,
-    margin: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  subscribedGradient: {
-    flex: 1,
-    backgroundColor: '#4299E1',
+  // Subscribed state
+  subscribedIconOverlay: {
+    position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  subscribedIcon: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
-  subscribedTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  subscribedSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  continueToAppButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 16,
-  },
-  continueToAppButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4299E1',
+    width: '100%',
+    height: '100%',
   },
 });
